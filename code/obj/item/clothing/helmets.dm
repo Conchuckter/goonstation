@@ -659,9 +659,10 @@
 	m_amt = 3000
 	g_amt = 1000
 	var/up = FALSE // The helmet's current position
-	color_r = 0.3 // darken
-	color_g = 0.3
-	color_b = 0.3
+	block_vision = TRUE
+	color_r = 0.6 // darken
+	color_g = 0.6
+	color_b = 0.6
 
 	setupProperties()
 		..()
@@ -671,6 +672,7 @@
 	proc/flip_down(mob/user)
 		up = FALSE
 		see_face = FALSE
+		block_vision = TRUE
 		icon_state = "welding"
 		boutput(user, "You flip the mask down. The mask is now protecting you from eye damage.")
 		color_r = initial(color_r) // darken
@@ -685,6 +687,7 @@
 	proc/flip_up(mob/user)
 		up = TRUE
 		see_face = TRUE
+		block_vision = FALSE
 		icon_state = "welding-up"
 		boutput(user, "You flip the mask up. The mask is now providing greater armor to your head.")
 		color_r = 1 // no effect
