@@ -27,6 +27,7 @@
 	var/default_reinforcement = null
 	var/reinf = 0 // cant figure out how to remove this without the map crying aaaaa - ISN
 	var/deconstruct_time = 1 SECOND
+	var/welded = 0
 	var/image/connect_image = null
 	pressure_resistance = 4*ONE_ATMOSPHERE
 	gas_impermeable = TRUE
@@ -289,6 +290,8 @@
 				the_text += "It doesn't seem to be properly fastened down."
 		if (opacity)
 			the_text += " ...you can't see through it at all. What kind of idiot made this?"
+		if (src.welded)
+			the_text += " The edges of the window have been melted making it impossible to remove."
 		return the_text
 
 	Cross(atom/movable/mover)
@@ -370,54 +373,73 @@
 	attackby(obj/item/W, mob/user)
 		user.lastattacked = src
 
-		if (isscrewingtool(W))
-			if (state == 10) // ???
+		if (!src.welded || !src.anchored)
+			if (isscrewingtool(W))
+				if (state == 10) // ???
+					return
+				else if (state >= 1)
+					playsound(src.loc, "sound/items/Screwdriver.ogg", 75, 1)
+					if (deconstruct_time)
+						var/total_decon_time = deconstruct_time
+						if(ishuman(user))
+							var/mob/living/carbon/human/H = user
+							if (H.traitHolder.hasTrait("carpenter") || H.traitHolder.hasTrait("training_engineer"))
+								total_decon_time = round(total_decon_time / 2)
+						user.show_text("You begin to [state == 1 ? "fasten the window to" : "unfasten the window from"] the frame...", "red")
+						SETUP_GENERIC_ACTIONBAR(user, src, total_decon_time, /obj/window/proc/assembly_handler, list(user,W), W.icon, W.icon_state,null,null)
+					else
+						assembly_handler(user, W)
+				else
+					playsound(src.loc, "sound/items/Screwdriver.ogg", 75, 1)
+					if (deconstruct_time)
+						var/total_decon_time = deconstruct_time
+						if(ishuman(user))
+							var/mob/living/carbon/human/H = user
+							if (H.traitHolder.hasTrait("carpenter") || H.traitHolder.hasTrait("training_engineer"))
+								total_decon_time = round(total_decon_time / 2)
+						user.show_text("You begin to [src.anchored ? "unfasten the frame from" : "fasten the frame to"] the floor...", "red")
+						SETUP_GENERIC_ACTIONBAR(user, src, total_decon_time, /obj/window/proc/assembly_handler, list(user,W), W.icon, W.icon_state,null,null)
+					else
+						assembly_handler(user, W)
 				return
-			else if (state >= 1)
-				playsound(src.loc, "sound/items/Screwdriver.ogg", 75, 1)
-				if (deconstruct_time)
-					var/total_decon_time = deconstruct_time
-					if(ishuman(user))
-						var/mob/living/carbon/human/H = user
-						if (H.traitHolder.hasTrait("carpenter") || H.traitHolder.hasTrait("training_engineer"))
-							total_decon_time = round(total_decon_time / 2)
-					user.show_text("You begin to [state == 1 ? "fasten the window to" : "unfasten the window from"] the frame...", "red")
-					SETUP_GENERIC_ACTIONBAR(user, src, total_decon_time, /obj/window/proc/assembly_handler, list(user,W), W.icon, W.icon_state,null,null)
-				else
-					assembly_handler(user, W)
-			else
-				playsound(src.loc, "sound/items/Screwdriver.ogg", 75, 1)
-				if (deconstruct_time)
-					var/total_decon_time = deconstruct_time
-					if(ishuman(user))
-						var/mob/living/carbon/human/H = user
-						if (H.traitHolder.hasTrait("carpenter") || H.traitHolder.hasTrait("training_engineer"))
-							total_decon_time = round(total_decon_time / 2)
-					user.show_text("You begin to [src.anchored ? "unfasten the frame from" : "fasten the frame to"] the floor...", "red")
-					SETUP_GENERIC_ACTIONBAR(user, src, total_decon_time, /obj/window/proc/assembly_handler, list(user,W), W.icon, W.icon_state,null,null)
-				else
-					assembly_handler(user, W)
 
-		else if (ispryingtool(W) && state <= 1)
-			//no sound here, snap is after the action
-			if(!anchored)
-				src.turn_window()
-			else
-				if (deconstruct_time)
-					var/total_decon_time = deconstruct_time
-					if(ishuman(user))
-						var/mob/living/carbon/human/H = user
-						if (H.traitHolder.hasTrait("carpenter") || H.traitHolder.hasTrait("training_engineer"))
-							total_decon_time = round(total_decon_time / 2)
-					user.show_text("You begin to [src.state ? "pry the window out of" : "pry the window into"] the frame...", "red")
-					SETUP_GENERIC_ACTIONBAR(user, src, total_decon_time, /obj/window/proc/assembly_handler, list(user,W), W.icon, W.icon_state,null,null)
+			else if (ispryingtool(W) && state <= 1)
+				//no sound here, snap is after the action
+				if(!anchored)
+					src.turn_window()
 				else
-					assembly_handler(user, W)
+					if (deconstruct_time)
+						var/total_decon_time = deconstruct_time
+						if(ishuman(user))
+							var/mob/living/carbon/human/H = user
+							if (H.traitHolder.hasTrait("carpenter") || H.traitHolder.hasTrait("training_engineer"))
+								total_decon_time = round(total_decon_time / 2)
+						user.show_text("You begin to [src.state ? "pry the window out of" : "pry the window into"] the frame...", "red")
+						SETUP_GENERIC_ACTIONBAR(user, src, total_decon_time, /obj/window/proc/assembly_handler, list(user,W), W.icon, W.icon_state,null,null)
+					else
+						assembly_handler(user, W)
+				return
 
-		else if (iswrenchingtool(W) && src.state == 0 && !src.anchored)
-			actions.start(new /datum/action/bar/icon/deconstruct_window(src, W), user)
+			else if (isweldingtool(W) && src.state == 2)
+				var/obj/item/weldingtool/T = W
+				if (T.welding)
+					if (deconstruct_time)
+						var/total_decon_time = deconstruct_time
+						if (ishuman(user))
+							var/mob/living/carbon/human/H = user
+							if (H.traitHolder.hasTrait("carpenter") || H.traitHolder.hasTrait("training_engineer"))
+								total_decon_time = round(total_decon_time / 2)
+						user.show_text("You begin to carefully melt the edges of the window...", "red")
+						SETUP_GENERIC_ACTIONBAR(user, src, total_decon_time, /obj/window/proc/assembly_handler, list(user,W), W.icon, W.icon_state,null,null)
+					else
+						assembly_handler(user, W)
+					return
 
-		else if (istype(W, /obj/item/grab))
+			else if (iswrenchingtool(W) && src.state == 0 && !src.anchored)
+				actions.start(new /datum/action/bar/icon/deconstruct_window(src, W), user)
+				return
+
+		if (istype(W, /obj/item/grab))
 			var/obj/item/grab/G = W
 			if (ishuman(G.affecting) && BOUNDS_DIST(G.affecting, src) == 0)
 				src.visible_message("<span class='alert'><B>[user] slams [G.affecting]'s head into [src]!</B></span>")
@@ -427,6 +449,7 @@
 				src.damage_blunt(G.affecting.throwforce)
 				qdel(W)
 		else
+
 			attack_particle(user,src)
 			playsound(src.loc, src.hitsound , 75, 1)
 			src.damage_blunt(W.force)
@@ -448,6 +471,10 @@
 			state = 1 - state
 			user.show_text("You have [src.state ? "pried the window into" : "pried the window out of"] the frame.", "blue")
 			playsound(src.loc, "sound/items/Crowbar.ogg", 75, 1)
+		else if (isweldingtool(W))
+			src.welded = 1
+			user.show_text("You have melted the edges of window.", "blue")
+			playsound(src.loc, "sound/items/Welder.ogg", 75, 1)
 
 	proc/align_window()
 		update_nearby_tiles(need_rebuild=1)
