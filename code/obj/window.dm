@@ -27,6 +27,7 @@
 	var/default_reinforcement = null
 	var/reinf = 0 // cant figure out how to remove this without the map crying aaaaa - ISN
 	var/deconstruct_time = 0//20
+	var/welded = 0
 	var/image/connect_image = null
 	pressure_resistance = 4*ONE_ATMOSPHERE
 	gas_impermeable = TRUE
@@ -435,6 +436,9 @@
 
 		else if (iswrenchingtool(W) && src.state == 0 && !src.anchored)
 			actions.start(new /datum/action/bar/icon/deconstruct_window(src, W), user)
+
+		else if (isweldingtool(W) && !src.welded && src.state == 2)
+
 
 		else if (istype(W, /obj/item/grab))
 			var/obj/item/grab/G = W
