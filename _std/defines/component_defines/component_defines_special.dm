@@ -93,18 +93,25 @@
 	#define COMSIG_FLOCK_ATTACK "flock_attack"
 
 // ---- Custom Programs ----
+	// ---- Setup ----
+		/// add or remove an output
+		#define COMSIG_PROGRAM_ADD_OUT "program_add_output"
+		#define COMSIG_PROGRAM_REMOVE_OUT "program_remove_output"
+		/// set the proc that is called when program actually halts
+		#define COMSIG_PROGRAM_HALT_PROC "program_halt_proc"
 
-	/// program output, for interfacing with peripherals
-	#define COMSIG_PROGRAM_OUT "program_out"
-	/// program input, so peripherals can talk to the program
-	#define COMSIG_PROGRAM_IN "program_in"
-	/// begin program execution
-	#define COMSIG_PROGRAM_EXECUTE "program_execute"
-	/// halt program
-	#define COMSIG_PROGRAM_HALT "program_halt"
-	/// add or remove an input
-	#define COMSIG_PROGRAM_ADD_IN "program_add_input"
-	#define COMSIG_PROGRAM_REMOVE_IN "program_remove_input"
-	/// add or remove an output
-	#define COMSIG_PROGRAM_ADD_OUT "program_add_output"
-	#define COMSIG_PROGRAM_REMOVE_OUT "program_remove_output"
+	// ---- Control ----
+		/// program output, for interfacing with peripherals
+		#define COMSIG_PROGRAM_OUT "program_out"
+		/// program input, so peripherals can talk to the program
+		#define COMSIG_PROGRAM_IN "program_in"
+		/// begin program execution-
+		#define COMSIG_PROGRAM_EXECUTE "program_execute"
+		/// halt program, sent to parent when program actually halts
+		#define COMSIG_PROGRAM_HALT "program_halt"
+
+	// ---- Console ----
+		/// Outputs a message to the terminal
+		#define COMSIG_PROGRAM_TERMINAL_MESSAGE "program_console_message"
+		/// Outputs a error message to the terminal
+		#define COMSIG_PROGRAM_TERMINAL_ERROR "program_console_error"
