@@ -2,26 +2,21 @@
 #define ERROR_UNDEFINED -1
 #define INSTRUCTION_ERROR_MESSAGE "ERROR: No return variable. MORE_INFO:\n"
 
-TYPEINFO(/datum/component/program_executor)
-	initialization_args = null
-
 // ---- Executor ----
 /datum/component/program_executor
 	// compiled program
 	var/datum/computer/file/compiled_program/program
 
-	// variables that are passed between functions
-	var/datum/program_memory/memory
-
 	// peripherals etc
 	var/list/outputs
 
-	var/halt = 0 // we need to halt!
+	var/list/global_variables
+	var/halt_now = 0 // we need to halt!
 	var/executing = 0 // whether we are executing or not
 
 	Initialize()
 		src.outputs = list()
-		src.memory = new/datum/program_memory
+		src.global_variables = list()
 
 		..()
 
@@ -50,8 +45,11 @@ TYPEINFO(/datum/component/program_executor)
 		src.outputs.Cut()
 		return
 
-	proc/execute(var/comsig_target, var/list/arguments)
-		if (src.executing)
+	proc/execute(var/comsig_target, var/datum/computer/file/compiled_program/program = null, var/list/arguments)
+		if (istype(program))
+			src.program = program
+
+		if (src.executing || !program)
 			return
 
 		src.terminal_message("Execution Started...")
@@ -59,7 +57,7 @@ TYPEINFO(/datum/component/program_executor)
 		src.call_function("init", arguments)
 
 	proc/halt(var/comsig_target, var/reason = null)
-		src.halt = 1
+		src.halt_now = 1
 		if (reason)
 			src.terminal_message("Execution Halting... Reason: [reason]")
 			return
@@ -67,8 +65,9 @@ TYPEINFO(/datum/component/program_executor)
 		src.terminal_message("Execution Halting...")
 
 	proc/halted()
-		src.halt = 0
+		src.halt_now = 0
 		src.executing = 0
+		src.global_variables.Cut()
 		src.terminal_message("Execution Stopped")
 		SEND_SIGNAL(src.parent, COMSIG_PROGRAM_HALT) // parent can register this if they care
 
@@ -96,9 +95,6 @@ TYPEINFO(/datum/component/program_executor)
 	proc/signal_in(var/comsig_target, var/sender, var/datum/program_signal/program_signal)
 		src.call_function("in", list(sender, program_signal.signal, program_signal.file))
 
-	proc/call_function(var/function, var/arguments)
-		return // whatever the program function returns
-
 	proc/terminal_error(var/text)
 		return
 
@@ -108,37 +104,50 @@ TYPEINFO(/datum/component/program_executor)
 	proc/handle_errors(var/error)
 		return
 
-/datum/program_memory
-	var/list/variables
+	proc/call_function(var/function_name, var/list/arguments, var/return_variable= null)
+		var/list/local_variables = list()
 
-// ---- Program ----
-/datum/program_signal
-	var/signal
-	var/datum/computer/file/file
+		var/datum/program_function/function = src.program.functions[function_name]
+		for (var/datum/program_instruction/PI in function.instructions)
+			if (src.halt_now)
+				src.halted()
+				return
 
-/datum/program_function
-	var/list/instructions
-
-	proc/execute(var/return_variable, var/datum/program_memory/memory, var/list/arguments)
-		var/list/local_variables
-
-
-		for (var/datum/program_instruction/PI in src.instructions)
-			var/instruction_arguments = replace_arguments(PI.arguments, local_variables, memory.variables)
+			var/list/instruction_arguments = replace_arguments(PI.arguments, local_variables, src.global_variables)
 			switch (lowertext(PI.keyword))
 				if ("var")
 					if (!PI.return_variable)
 						return INSTRUCTION_ERROR_MESSAGE + PI.error_message
 
-					local_variables.Add(PI.return_variable)
+					if (length(PI.arguments))
+						local_variables[PI.return_variable] = instruction_arguments[1]
+					else
+						local_variables[PI.return_variable] = null
 
-					if (!length(PI.arguments))
+				if ("glo")
+					if (!PI.return_variable)
+						return INSTRUCTION_ERROR_MESSAGE + PI.error_message
+
+					if (!(PI.return_variable in local_variables))
+						return ERROR_UNDEFINED + PI.error_message
+
+					if (!(PI.return_variable in src.global_variables))
+						src.global_variables.Add(PI.return_variable)
+
+					src.global_variables[PI.return_variable] = local_variables[PI.return_variable]
+
+				if ("out")
+					if (!instruction_arguments[0] || !instruction_arguments[1])
 						return
 
-					local_variables[PI.return_variable] = instruction_arguments[0]
+					var/result = SEND_SIGNAL(src, COMSIG_PROGRAM_OUT, address, signal_out)
+					if (!PI.return_variable || !result)
+						return
 
-				if ("call")
-					if (PI.return_variable)
+					if (!(PI.return_variable in local_variables))
+						return ERROR_UNDEFINED
+
+					local_variables[PI.return_variable] = result
 
 
 
@@ -155,8 +164,7 @@ TYPEINFO(/datum/component/program_executor)
 			if (!variable_right)
 				return ERROR_UNDEFINED
 
-			var/regex/regex = regex(".*")
-			var/variable_name = findtext(argument, regex, variable_left + 1, variable_right - 1)
+			var/variable_name = copytext(argument, variable_left + 1, variable_right)
 			if (!variable_name)
 				return ERROR_UNDEFINED
 
@@ -171,11 +179,72 @@ TYPEINFO(/datum/component/program_executor)
 
 		return replaced_arguments
 
+TYPEINFO(/datum/component/program_executor)
+	initialization_args = null
+
+// ---- Program ----
+/datum/program_signal
+	var/signal
+	var/datum/computer/file/file
+
+/datum/program_function
+	var/list/instructions = list()
+
+/datum/program_function/test
+	New()
+		..()
+		var/datum/program_instruction/instruction = new/datum/program_instruction
+		instruction.keyword = "var"
+		instruction.return_variable = "test"
+		instruction.arguments.Add(2)
+		src.instructions.Add(instruction)
+		instruction = new/datum/program_instruction
+		instruction.keyword = "var"
+		instruction.return_variable = "test2"
+		instruction.arguments.Add("4$test$4")
+		src.instructions.Add(instruction)
+		instruction = new/datum/program_instruction
+		instruction.keyword = "glo"
+		instruction.return_variable = "test2"
+		src.instructions.Add(instruction)
+
 /datum/program_instruction
 	var/keyword = null
 	var/error_message = "ERROR"
 	var/return_variable = null
 	var/list/arguments = list()
+
+/datum/computer/file/compiled_program
+	name = "Program"
+	extension = "CPROG"
+	size = 2
+
+	var/list/functions = list()
+
+	disposing()
+		src.functions.Cut()
+		..()
+
+/datum/computer/file/compiled_program/test
+	name = "Test Program"
+
+	New()
+		..()
+		var/function = new/datum/program_function/test
+		src.functions.Add("init")
+		src.functions["init"] = function
+
+/obj/test
+	name = "test"
+	icon = 'icons/obj/networked.dmi'
+	icon_state = "serverf"
+
+	New()
+		..()
+		AddComponent(/datum/component/program_executor)
+		var/program = new/datum/computer/file/compiled_program/test
+		SEND_SIGNAL(src, COMSIG_PROGRAM_EXECUTE, program)
+
 
 #undef ERROR_SUCCESSFUL
 #undef ERROR_UNDEFINED
