@@ -24,7 +24,6 @@
 		src.RegisterSignal(src.parent, list(COMSIG_PROGRAM_EXECUTE), .proc/execute)
 		src.RegisterSignal(src.parent, list(COMSIG_PROGRAM_HALT), .proc/halt)
 		src.RegisterSignal(src.parent, list(COMSIG_PROGRAM_IN), .proc/signal_in)
-		src.RegisterSignal(src.parent, list(COMSIG_PROGRAM_OUT), .proc/signal_out)
 		src.RegisterSignal(src.parent, list(COMSIG_PROGRAM_ADD_OUT), .proc/add_output)
 		src.RegisterSignal(src.parent, list(COMSIG_PROGRAM_REMOVE_OUT), .proc/remove_output)
 		src.RegisterSignal(src.parent, list(COMSIG_PROGRAM_TERMINAL_MESSAGE), .proc/terminal_message)
@@ -85,7 +84,7 @@
 
 		src.outputs.Remove(name)
 
-	proc/signal_out(var/comsig_target, var/address, var/datum/program_signal)
+	proc/signal_out(var/address, var/datum/program_signal)
 		if (!(address in src.outputs))
 			src.terminal_error("Unknown Output: [address]")
 			return 1
@@ -114,12 +113,13 @@
 				return
 
 			var/list/instruction_arguments = replace_arguments(PI.arguments, local_variables, src.global_variables)
+			var/argument_length = length(instruction_arguments)
 			switch (lowertext(PI.keyword))
 				if ("var")
 					if (!PI.return_variable)
 						return INSTRUCTION_ERROR_MESSAGE + PI.error_message
 
-					if (length(PI.arguments))
+					if (argument_length)
 						local_variables[PI.return_variable] = instruction_arguments[1]
 					else
 						local_variables[PI.return_variable] = null
@@ -137,10 +137,10 @@
 					src.global_variables[PI.return_variable] = local_variables[PI.return_variable]
 
 				if ("out")
-					if (!instruction_arguments[0] || !instruction_arguments[1])
+					if (argument_length < 2)
 						return
 
-					var/result = SEND_SIGNAL(src, COMSIG_PROGRAM_OUT, address, signal_out)
+					var/result = src.signal_out(!instruction_arguments[0], !instruction_arguments[1])
 					if (!PI.return_variable || !result)
 						return
 
@@ -204,8 +204,8 @@ TYPEINFO(/datum/component/program_executor)
 		instruction.arguments.Add("4$test$4")
 		src.instructions.Add(instruction)
 		instruction = new/datum/program_instruction
-		instruction.keyword = "glo"
-		instruction.return_variable = "test2"
+		instruction.keyword = "out"
+		instruction.arguments.Add("testout", "$test2$")
 		src.instructions.Add(instruction)
 
 /datum/program_instruction
@@ -243,8 +243,11 @@ TYPEINFO(/datum/component/program_executor)
 		..()
 		AddComponent(/datum/component/program_executor)
 		var/program = new/datum/computer/file/compiled_program/test
+		SEND_SIGNAL(src, COMSIG_PROGRAM_ADD_OUT, "testout", .proc/testout)
 		SEND_SIGNAL(src, COMSIG_PROGRAM_EXECUTE, program)
 
+	proc/testout(var/datum/program_signal/signal)
+		boutput(world, signal.signal)
 
 #undef ERROR_SUCCESSFUL
 #undef ERROR_UNDEFINED
