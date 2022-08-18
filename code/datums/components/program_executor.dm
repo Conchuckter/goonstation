@@ -1,6 +1,26 @@
-#define ERROR_SUCCESSFUL 0 // no error
-#define ERROR_UNDEFINED -1
-#define INSTRUCTION_ERROR_MESSAGE "ERROR: No return variable. MORE_INFO:\n"
+// Variables
+#define INSTRUCTION_VAR 0
+#define INSTRUCTION_GLOBAL 1
+// Peripherals
+#define INSTRUCTION_OUT 2
+// Arithmatic
+#define INSTRUCTION_ADD 3
+#define INSTRUCTION_SUB 4
+#define INSTRUCTION_MUL 5
+#define INSTRUCTION_DIV 6
+#define INSTRUCTION_MOD 7
+// Logical
+#define INSTRUCTION_EQ 8
+#define INSTRUCTION_LT 9
+#define INSTRUCTION_GT 10
+#define INSTRUCTION_LTEQ 11
+#define INSTRUCTION_GTEQ 12
+#define INSTRUCTION_NOT 13
+#define INSTRUCTION_OR 14
+#define INSTRUCTION_AND 15
+// Control
+#define INSTRUCTION_JMP 16
+#define INSTRUCTION_RETURN 17
 
 // ---- Executor ----
 /datum/component/program_executor
@@ -84,15 +104,17 @@
 
 		src.outputs.Remove(name)
 
-	proc/signal_out(var/address, var/datum/program_signal)
+	proc/signal_out(var/address, var/signal)
+		var/datum/program_signal/S = new/datum/program_signal
+		S.signal = signal
 		if (!(address in src.outputs))
 			src.terminal_error("Unknown Output: [address]")
 			return 1
 
-		call(src.parent, src.outputs[address])(program_signal)
+		call(src.parent, src.outputs[address])(S)
 
-	proc/signal_in(var/comsig_target, var/sender, var/datum/program_signal/program_signal)
-		src.call_function("in", list(sender, program_signal.signal, program_signal.file))
+	proc/signal_in(var/comsig_target, var/sender, var/signal)
+		src.call_function("input", list(sender, signal))
 
 	proc/terminal_error(var/text)
 		return
@@ -100,56 +122,141 @@
 	proc/terminal_message(var/text)
 		return
 
-	proc/handle_errors(var/error)
-		return
-
 	proc/call_function(var/function_name, var/list/arguments, var/return_variable= null)
 		var/list/local_variables = list()
+		local_variables.Add("argc")
+		local_variables["argc"] = length(arguments)
+		for (var/i = 1, !(i > length(arguments)), i++)
+			local_variables["arg[i-1]"] = arguments[i]
 
 		var/datum/program_function/function = src.program.functions[function_name]
-		for (var/datum/program_instruction/PI in function.instructions)
+		var/function_length = length(function.instructions)
+		for (var/i = 1, !(i > function_length), i++)
+			var/datum/program_instruction/PI = function.instructions[i]
+			if (!istype(PI))
+				return
+
 			if (src.halt_now)
 				src.halted()
 				return
 
 			var/list/instruction_arguments = replace_arguments(PI.arguments, local_variables, src.global_variables)
 			var/argument_length = length(instruction_arguments)
-			switch (lowertext(PI.keyword))
-				if ("var")
+			switch (lowertext(PI.code))
+				if (INSTRUCTION_VAR)
 					if (!PI.return_variable)
-						return INSTRUCTION_ERROR_MESSAGE + PI.error_message
+						src.terminal_error("[i]: Missing Return Variable")
+						return
 
 					if (argument_length)
 						local_variables[PI.return_variable] = instruction_arguments[1]
 					else
 						local_variables[PI.return_variable] = null
 
-				if ("glo")
+				if (INSTRUCTION_GLOBAL)
 					if (!PI.return_variable)
-						return INSTRUCTION_ERROR_MESSAGE + PI.error_message
+						src.terminal_error("[i]: Missing Return Variable")
+						return
 
 					if (!(PI.return_variable in local_variables))
-						return ERROR_UNDEFINED + PI.error_message
+						src.terminal_error("[i]: Undefined Return Variable")
+						return
 
 					if (!(PI.return_variable in src.global_variables))
 						src.global_variables.Add(PI.return_variable)
 
 					src.global_variables[PI.return_variable] = local_variables[PI.return_variable]
 
-				if ("out")
+				if (INSTRUCTION_OUT)
 					if (argument_length < 2)
+						src.terminal_error("[i]: Insufficient Arguments")
 						return
 
-					var/result = src.signal_out(!instruction_arguments[0], !instruction_arguments[1])
+					var/result = src.signal_out(instruction_arguments[1], instruction_arguments[2])
 					if (!PI.return_variable || !result)
-						return
+						continue
 
 					if (!(PI.return_variable in local_variables))
-						return ERROR_UNDEFINED
+						src.terminal_error("[i]: Undefined Return Variable")
+						return
 
 					local_variables[PI.return_variable] = result
 
+				if (INSTRUCTION_ADD)
+					if (argument_length < 2)
+						src.terminal_error("[i]: Insufficient Arguments")
+						return
 
+					if (!PI.return_variable)
+						src.terminal_error("[i]: No Return Variable")
+						return
+
+					if (!(PI.return_variable in local_variables))
+						src.terminal_error("[i]: Undefined Return Variable")
+						return
+
+					var/result
+					for (var/argument in instruction_arguments)
+						result += text2num_safe(argument)
+
+					local_variables[PI.return_variable] = result
+
+				if (INSTRUCTION_SUB)
+					if (argument_length < 2)
+						src.terminal_error("[i]: Insufficient Arguments")
+						return
+
+					if (!PI.return_variable)
+						src.terminal_error("[i]: No Return Variable")
+						return
+
+					if (!(PI.return_variable in local_variables))
+						src.terminal_error("[i]: Undefined Return Variable")
+						return
+
+					var/result
+					for (var/argument in instruction_arguments)
+						result -= text2num_safe(argument)
+
+					local_variables[PI.return_variable] = result
+
+				if (INSTRUCTION_MUL)
+					if (argument_length < 2)
+						src.terminal_error("[i]: Insufficient Arguments")
+						return
+
+					if (!PI.return_variable)
+						src.terminal_error("[i]: No Return Variable")
+						return
+
+					if (!(PI.return_variable in local_variables))
+						src.terminal_error("[i]: Undefined Return Variable")
+						return
+
+					var/result
+					for (var/argument in instruction_arguments)
+						result *= text2num_safe(argument)
+
+					local_variables[PI.return_variable] = result
+
+				if (INSTRUCTION_DIV)
+					if (argument_length < 2)
+						src.terminal_error("[i]: Insufficient Arguments")
+						return
+
+					if (!PI.return_variable)
+						src.terminal_error("[i]: No Return Variable")
+						return
+
+					if (!(PI.return_variable in local_variables))
+						src.terminal_error("[i]: Undefined Return Variable")
+						return
+
+					var/result
+					for (var/argument in instruction_arguments)
+						result /= text2num_safe(argument)
+
+					local_variables[PI.return_variable] = result
 
 	proc/replace_arguments(var/list/arguments, var/list/local_variables, var/list/global_variables)
 		var/list/replaced_arguments = list()
@@ -162,11 +269,11 @@
 
 			var/variable_right = findtext(argument, "$", variable_left + 1)
 			if (!variable_right)
-				return ERROR_UNDEFINED
+				return
 
 			var/variable_name = copytext(argument, variable_left + 1, variable_right)
 			if (!variable_name)
-				return ERROR_UNDEFINED
+				return
 
 			if (variable_name in local_variables)
 				replaced_arguments.Add(local_variables[variable_name])
@@ -175,7 +282,7 @@
 				replaced_arguments.Add(global_variables[variable_name])
 				continue
 			else
-				return ERROR_UNDEFINED
+				return
 
 		return replaced_arguments
 
@@ -194,23 +301,21 @@ TYPEINFO(/datum/component/program_executor)
 	New()
 		..()
 		var/datum/program_instruction/instruction = new/datum/program_instruction
-		instruction.keyword = "var"
+		instruction.code = INSTRUCTION_VAR
 		instruction.return_variable = "test"
-		instruction.arguments.Add(2)
 		src.instructions.Add(instruction)
 		instruction = new/datum/program_instruction
-		instruction.keyword = "var"
-		instruction.return_variable = "test2"
-		instruction.arguments.Add("4$test$4")
+		instruction.code = INSTRUCTION_ADD
+		instruction.return_variable = "test"
+		instruction.arguments.Add("$arg1$", 5)
 		src.instructions.Add(instruction)
 		instruction = new/datum/program_instruction
-		instruction.keyword = "out"
-		instruction.arguments.Add("testout", "$test2$")
+		instruction.code = INSTRUCTION_OUT
+		instruction.arguments.Add("testout", "$test$")
 		src.instructions.Add(instruction)
 
 /datum/program_instruction
-	var/keyword = null
-	var/error_message = "ERROR"
+	var/code = null
 	var/return_variable = null
 	var/list/arguments = list()
 
@@ -231,8 +336,8 @@ TYPEINFO(/datum/component/program_executor)
 	New()
 		..()
 		var/function = new/datum/program_function/test
-		src.functions.Add("init")
-		src.functions["init"] = function
+		src.functions.Add("input")
+		src.functions["input"] = function
 
 /obj/test
 	name = "test"
@@ -246,8 +351,13 @@ TYPEINFO(/datum/component/program_executor)
 		SEND_SIGNAL(src, COMSIG_PROGRAM_ADD_OUT, "testout", .proc/testout)
 		SEND_SIGNAL(src, COMSIG_PROGRAM_EXECUTE, program)
 
-	proc/testout(var/datum/program_signal/signal)
-		boutput(world, signal.signal)
+	hear_talk(mob/M, text, real_name)
+		SEND_SIGNAL(src, COMSIG_PROGRAM_IN, "chat", text[1])
+		..()
 
-#undef ERROR_SUCCESSFUL
-#undef ERROR_UNDEFINED
+	proc/testout(var/datum/program_signal/signal)
+		if (isnum(signal.signal))
+			src.visible_message(num2text(signal.signal))
+			return
+
+		src.visible_message(signal.signal)
