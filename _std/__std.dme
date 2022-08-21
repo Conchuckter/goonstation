@@ -26,6 +26,7 @@
 #include "defines\client.dm"
 #include "defines\clothing.dm"
 #include "defines\combat.dm"
+#include "defines\compiled_programs.dm"
 #include "defines\component_defines\component_defines_atom.dm"
 #include "defines\component_defines\component_defines_datum.dm"
 #include "defines\component_defines\component_defines_global.dm"

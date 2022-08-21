@@ -1,27 +1,3 @@
-// Variables
-#define INSTRUCTION_VAR 0
-#define INSTRUCTION_GLOBAL 1
-// Peripherals
-#define INSTRUCTION_OUT 2
-// Arithmatic
-#define INSTRUCTION_ADD 3
-#define INSTRUCTION_SUB 4
-#define INSTRUCTION_MUL 5
-#define INSTRUCTION_DIV 6
-#define INSTRUCTION_MOD 7
-// Logical
-#define INSTRUCTION_EQ 8
-#define INSTRUCTION_LT 9
-#define INSTRUCTION_GT 10
-#define INSTRUCTION_LTEQ 11
-#define INSTRUCTION_GTEQ 12
-#define INSTRUCTION_NOT 13
-#define INSTRUCTION_OR 14
-#define INSTRUCTION_AND 15
-// Control
-#define INSTRUCTION_JMP 16
-#define INSTRUCTION_RETURN 17
-
 // ---- Executor ----
 /datum/component/program_executor
 	// compiled program
@@ -97,7 +73,7 @@
 		src.outputs.Add(name)
 		src.outputs[name] = to_call
 
-	// if peripherals get removed?
+	// if peripherals get removed
 	proc/remove_output(var/comsig_target, var/name)
 		if (!(name in src.outputs))
 			return
@@ -123,14 +99,18 @@
 		return
 
 	proc/call_function(var/function_name, var/list/arguments, var/return_variable= null)
+		if (!(function_name in src.program.functions))
+			return
+
+		var/datum/program_function/function = src.program.functions[function_name]
+		var/function_length = length(function.instructions)
+
 		var/list/local_variables = list()
 		local_variables.Add("argc")
 		local_variables["argc"] = length(arguments)
 		for (var/i = 1, !(i > length(arguments)), i++)
 			local_variables["arg[i-1]"] = arguments[i]
 
-		var/datum/program_function/function = src.program.functions[function_name]
-		var/function_length = length(function.instructions)
 		for (var/i = 1, !(i > function_length), i++)
 			var/datum/program_instruction/PI = function.instructions[i]
 			if (!istype(PI))
@@ -143,7 +123,7 @@
 			var/list/instruction_arguments = replace_arguments(PI.arguments, local_variables, src.global_variables)
 			var/argument_length = length(instruction_arguments)
 			switch (lowertext(PI.code))
-				if (INSTRUCTION_VAR)
+				if (PROGRAM_INSTRUCTION_VAR)
 					if (!PI.return_variable)
 						src.terminal_error("[i]: Missing Return Variable")
 						return
@@ -153,7 +133,7 @@
 					else
 						local_variables[PI.return_variable] = null
 
-				if (INSTRUCTION_GLOBAL)
+				if (PROGRAM_INSTRUCTION_GLOBAL)
 					if (!PI.return_variable)
 						src.terminal_error("[i]: Missing Return Variable")
 						return
@@ -167,7 +147,7 @@
 
 					src.global_variables[PI.return_variable] = local_variables[PI.return_variable]
 
-				if (INSTRUCTION_OUT)
+				if (PROGRAM_INSTRUCTION_OUT)
 					if (argument_length < 2)
 						src.terminal_error("[i]: Insufficient Arguments")
 						return
@@ -182,7 +162,7 @@
 
 					local_variables[PI.return_variable] = result
 
-				if (INSTRUCTION_ADD)
+				if (PROGRAM_INSTRUCTION_ADD)
 					if (argument_length < 2)
 						src.terminal_error("[i]: Insufficient Arguments")
 						return
@@ -201,7 +181,7 @@
 
 					local_variables[PI.return_variable] = result
 
-				if (INSTRUCTION_SUB)
+				if (PROGRAM_INSTRUCTION_SUB)
 					if (argument_length < 2)
 						src.terminal_error("[i]: Insufficient Arguments")
 						return
@@ -220,7 +200,7 @@
 
 					local_variables[PI.return_variable] = result
 
-				if (INSTRUCTION_MUL)
+				if (PROGRAM_INSTRUCTION_MUL)
 					if (argument_length < 2)
 						src.terminal_error("[i]: Insufficient Arguments")
 						return
@@ -233,13 +213,13 @@
 						src.terminal_error("[i]: Undefined Return Variable")
 						return
 
-					var/result
+					var/result = 0
 					for (var/argument in instruction_arguments)
 						result *= text2num_safe(argument)
 
 					local_variables[PI.return_variable] = result
 
-				if (INSTRUCTION_DIV)
+				if (PROGRAM_INSTRUCTION_DIV)
 					if (argument_length < 2)
 						src.terminal_error("[i]: Insufficient Arguments")
 						return
@@ -301,16 +281,16 @@ TYPEINFO(/datum/component/program_executor)
 	New()
 		..()
 		var/datum/program_instruction/instruction = new/datum/program_instruction
-		instruction.code = INSTRUCTION_VAR
+		instruction.code = PROGRAM_INSTRUCTION_VAR
 		instruction.return_variable = "test"
 		src.instructions.Add(instruction)
 		instruction = new/datum/program_instruction
-		instruction.code = INSTRUCTION_ADD
+		instruction.code = PROGRAM_INSTRUCTION_ADD
 		instruction.return_variable = "test"
-		instruction.arguments.Add("$arg1$", 5)
+		instruction.arguments.Add("$arg1$", "$arg1$", "$arg1$")
 		src.instructions.Add(instruction)
 		instruction = new/datum/program_instruction
-		instruction.code = INSTRUCTION_OUT
+		instruction.code = PROGRAM_INSTRUCTION_OUT
 		instruction.arguments.Add("testout", "$test$")
 		src.instructions.Add(instruction)
 
