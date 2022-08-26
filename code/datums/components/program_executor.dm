@@ -175,7 +175,7 @@
 						src.terminal_error("[i]: Undefined Return Variable")
 						return
 
-					var/result
+					var/result = 0
 					for (var/argument in instruction_arguments)
 						result += text2num_safe(argument)
 
@@ -194,7 +194,7 @@
 						src.terminal_error("[i]: Undefined Return Variable")
 						return
 
-					var/result
+					var/result = 0
 					for (var/argument in instruction_arguments)
 						result -= text2num_safe(argument)
 
@@ -213,7 +213,7 @@
 						src.terminal_error("[i]: Undefined Return Variable")
 						return
 
-					var/result = 0
+					var/result = 1
 					for (var/argument in instruction_arguments)
 						result *= text2num_safe(argument)
 
@@ -232,8 +232,11 @@
 						src.terminal_error("[i]: Undefined Return Variable")
 						return
 
-					var/result
+					// improve this
+					var/result = text2num_safe(instruction_arguments[1]) * text2num_safe(instruction_arguments[1])
 					for (var/argument in instruction_arguments)
+
+
 						result /= text2num_safe(argument)
 
 					local_variables[PI.return_variable] = result
@@ -285,7 +288,7 @@ TYPEINFO(/datum/component/program_executor)
 		instruction.return_variable = "test"
 		src.instructions.Add(instruction)
 		instruction = new/datum/program_instruction
-		instruction.code = PROGRAM_INSTRUCTION_ADD
+		instruction.code = PROGRAM_INSTRUCTION_MUL
 		instruction.return_variable = "test"
 		instruction.arguments.Add("$arg1$", "$arg1$", "$arg1$")
 		src.instructions.Add(instruction)
