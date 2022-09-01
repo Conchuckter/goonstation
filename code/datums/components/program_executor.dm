@@ -111,8 +111,8 @@
 		for (var/i = 1, !(i > length(arguments)), i++)
 			local_variables["arg[i-1]"] = arguments[i]
 
-		for (var/i = 1, !(i > function_length), i++)
-			var/datum/program_instruction/PI = function.instructions[i]
+		for (var/line = 1, !(line > function_length), line++)
+			var/datum/program_instruction/PI = function.instructions[line]
 			if (!istype(PI))
 				return
 
@@ -125,7 +125,7 @@
 			switch (lowertext(PI.code))
 				if (PROGRAM_INSTRUCTION_VAR)
 					if (!PI.return_variable)
-						src.terminal_error("[i]: Missing Return Variable")
+						src.terminal_error("[line]: Missing Return Variable")
 						return
 
 					if (argument_length)
@@ -135,11 +135,11 @@
 
 				if (PROGRAM_INSTRUCTION_GLOBAL)
 					if (!PI.return_variable)
-						src.terminal_error("[i]: Missing Return Variable")
+						src.terminal_error("[line]: Missing Return Variable")
 						return
 
 					if (!(PI.return_variable in local_variables))
-						src.terminal_error("[i]: Undefined Return Variable")
+						src.terminal_error("[line]: Undefined Return Variable")
 						return
 
 					if (!(PI.return_variable in src.global_variables))
@@ -149,7 +149,7 @@
 
 				if (PROGRAM_INSTRUCTION_OUT)
 					if (argument_length < 2)
-						src.terminal_error("[i]: Insufficient Arguments")
+						src.terminal_error("[line]: Insufficient Arguments")
 						return
 
 					var/result = src.signal_out(instruction_arguments[1], instruction_arguments[2])
@@ -157,87 +157,84 @@
 						continue
 
 					if (!(PI.return_variable in local_variables))
-						src.terminal_error("[i]: Undefined Return Variable")
+						src.terminal_error("[line]: Undefined Return Variable")
 						return
 
 					local_variables[PI.return_variable] = result
 
 				if (PROGRAM_INSTRUCTION_ADD)
 					if (argument_length < 2)
-						src.terminal_error("[i]: Insufficient Arguments")
+						src.terminal_error("[line]: Insufficient Arguments")
 						return
 
 					if (!PI.return_variable)
-						src.terminal_error("[i]: No Return Variable")
+						src.terminal_error("[line]: No Return Variable")
 						return
 
 					if (!(PI.return_variable in local_variables))
-						src.terminal_error("[i]: Undefined Return Variable")
+						src.terminal_error("[line]: Undefined Return Variable")
 						return
 
-					var/result = 0
-					for (var/argument in instruction_arguments)
-						result += text2num_safe(argument)
+					var/result = arguments[1]
+					for (var/i = 2, !(i > argument_length), i++)
+						result += text2num_safe(arguments[i])
 
 					local_variables[PI.return_variable] = result
 
 				if (PROGRAM_INSTRUCTION_SUB)
 					if (argument_length < 2)
-						src.terminal_error("[i]: Insufficient Arguments")
+						src.terminal_error("[line]: Insufficient Arguments")
 						return
 
 					if (!PI.return_variable)
-						src.terminal_error("[i]: No Return Variable")
+						src.terminal_error("[line]: No Return Variable")
 						return
 
 					if (!(PI.return_variable in local_variables))
-						src.terminal_error("[i]: Undefined Return Variable")
+						src.terminal_error("[line]: Undefined Return Variable")
 						return
 
-					var/result = 0
-					for (var/argument in instruction_arguments)
-						result -= text2num_safe(argument)
+					var/result = arguments[1]
+					for (var/i = 2, !(i > argument_length), i++)
+						result -= text2num_safe(arguments[i])
 
 					local_variables[PI.return_variable] = result
 
 				if (PROGRAM_INSTRUCTION_MUL)
 					if (argument_length < 2)
-						src.terminal_error("[i]: Insufficient Arguments")
+						src.terminal_error("[line]: Insufficient Arguments")
 						return
 
 					if (!PI.return_variable)
-						src.terminal_error("[i]: No Return Variable")
+						src.terminal_error("[line]: No Return Variable")
 						return
 
 					if (!(PI.return_variable in local_variables))
-						src.terminal_error("[i]: Undefined Return Variable")
+						src.terminal_error("[line]: Undefined Return Variable")
 						return
 
-					var/result = 1
-					for (var/argument in instruction_arguments)
-						result *= text2num_safe(argument)
+					var/result = arguments[1]
+					for (var/i = 2, !(i > argument_length), i++)
+						result *= text2num_safe(arguments[i])
 
 					local_variables[PI.return_variable] = result
 
 				if (PROGRAM_INSTRUCTION_DIV)
 					if (argument_length < 2)
-						src.terminal_error("[i]: Insufficient Arguments")
+						src.terminal_error("[line]: Insufficient Arguments")
 						return
 
 					if (!PI.return_variable)
-						src.terminal_error("[i]: No Return Variable")
+						src.terminal_error("[line]: No Return Variable")
 						return
 
 					if (!(PI.return_variable in local_variables))
-						src.terminal_error("[i]: Undefined Return Variable")
+						src.terminal_error("[line]: Undefined Return Variable")
 						return
 
-					// improve this
-					var/result = text2num_safe(instruction_arguments[1]) * text2num_safe(instruction_arguments[1])
-					for (var/argument in instruction_arguments)
-
-
-						result /= text2num_safe(argument)
+					var/result = arguments[1]
+					for (var/i = 2, !(i > argument_length), i++)
+						result /= text2num_safe(arguments[i])
 
 					local_variables[PI.return_variable] = result
 
@@ -288,9 +285,9 @@ TYPEINFO(/datum/component/program_executor)
 		instruction.return_variable = "test"
 		src.instructions.Add(instruction)
 		instruction = new/datum/program_instruction
-		instruction.code = PROGRAM_INSTRUCTION_MUL
+		instruction.code = PROGRAM_INSTRUCTION_DIV
 		instruction.return_variable = "test"
-		instruction.arguments.Add("$arg1$", "$arg1$", "$arg1$")
+		instruction.arguments.Add("$arg1$", 10)
 		src.instructions.Add(instruction)
 		instruction = new/datum/program_instruction
 		instruction.code = PROGRAM_INSTRUCTION_OUT
