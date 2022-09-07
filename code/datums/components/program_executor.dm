@@ -175,9 +175,9 @@
 						src.terminal_error("[line]: Undefined Return Variable")
 						return
 
-					var/result = text2num_safe(arguments[1])
+					var/result = text2num_safe(instruction_arguments[1])
 					for (var/i = 2, !(i > argument_length), i++)
-						result += text2num_safe(arguments[i])
+						result += text2num_safe(instruction_arguments[i])
 
 					local_variables[PI.return_variable] = result
 
@@ -194,9 +194,9 @@
 						src.terminal_error("[line]: Undefined Return Variable")
 						return
 
-					var/result = text2num_safe(arguments[1])
+					var/result = text2num_safe(instruction_arguments[1])
 					for (var/i = 2, !(i > argument_length), i++)
-						result -= text2num_safe(arguments[i])
+						result -= text2num_safe(instruction_arguments[i])
 
 					local_variables[PI.return_variable] = result
 
@@ -213,9 +213,9 @@
 						src.terminal_error("[line]: Undefined Return Variable")
 						return
 
-					var/result = text2num_safe(arguments[1])
+					var/result = text2num_safe(instruction_arguments[1])
 					for (var/i = 2, !(i > argument_length), i++)
-						result *= text2num_safe(arguments[i])
+						result *= text2num_safe(instruction_arguments[i])
 
 					local_variables[PI.return_variable] = result
 
@@ -232,9 +232,9 @@
 						src.terminal_error("[line]: Undefined Return Variable")
 						return
 
-					var/result = text2num_safe(arguments[1])
+					var/result = text2num_safe(instruction_arguments[1])
 					for (var/i = 2, !(i > argument_length), i++)
-						result /= text2num_safe(arguments[i])
+						result /= text2num_safe(instruction_arguments[i])
 
 					local_variables[PI.return_variable] = result
 
@@ -287,7 +287,7 @@ TYPEINFO(/datum/component/program_executor)
 		instruction = new/datum/program_instruction
 		instruction.code = PROGRAM_INSTRUCTION_DIV
 		instruction.return_variable = "test"
-		instruction.arguments.Add("$arg2$", 10)
+		instruction.arguments.Add("$arg1$", 10)
 		src.instructions.Add(instruction)
 		instruction = new/datum/program_instruction
 		instruction.code = PROGRAM_INSTRUCTION_OUT
