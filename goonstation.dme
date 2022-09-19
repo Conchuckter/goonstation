@@ -472,6 +472,7 @@ var/datum/preMapLoad/preMapLoad = new
 #include "code\lists\ckey_configs.dm"
 #include "code\lists\jobs.dm"
 #include "code\mob\dead.dm"
+#include "code\mob\emote.dm"
 #include "code\mob\input.dm"
 #include "code\mob\living.dm"
 #include "code\mob\melee_attack_procs.dm"

@@ -83,6 +83,7 @@
 	var/last_heard_name = null
 	var/last_chat_color = null
 
+	var/list/datum/emotes/usable_emotes
 	var/list/random_emotes
 
 	var/list/implant = list()
