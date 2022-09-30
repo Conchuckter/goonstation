@@ -19,9 +19,10 @@
 	name = "space helmet"
 	icon_state = "space"
 	c_flags = SPACEWEAR | COVERSEYES | COVERSMOUTH | BLOCKCHOKE
-	see_face = 0.0
+	see_face = 0
 	item_state = "s_helmet"
 	desc = "Helps protect against vacuum."
+	hides_from_examine = C_EARS|C_MASK|C_GLASSES
 	seal_hair = 1
 	path_prot = 0
 
@@ -34,6 +35,7 @@
 		setProperty("disorient_resist_eye", 8)
 		setProperty("disorient_resist_ear", 8)
 		setProperty("space_movespeed", 0.2)
+		setProperty("radprot", 5)
 
 	oldish
 		icon_state = "space-OLD"
@@ -46,7 +48,7 @@
 	icon_state = "espace0"
 	uses_multiple_icon_states = 1
 	c_flags = SPACEWEAR | COVERSEYES | COVERSMOUTH
-	see_face = 0.0
+	see_face = 0
 	item_state = "s_helmet"
 	var/on = 0
 
@@ -123,53 +125,55 @@
 	desc = "Helps protect against vacuum. Comes in a unique, flashy style."
 
 /obj/item/clothing/head/helmet/space/custom
-
 	name = "bespoke space helmet"
 	desc = "A custom built helmet with a fancy visor!"
 	icon_state = "spacemat"
 
-	inhand_image_icon = 'icons/mob/inhand/hand_headgear.dmi' // inhand shit
-	item_state = "s_helmet"
-
-	icon = 'icons/obj/clothing/item_hats.dmi'
-	var/datum/material/visr_material = null
-	var/image/fabrImg = null
-	var/image/visrImg = null
+	var/image/fabrItemImg = null
+	var/image/fabrWornImg = null
+	var/image/visrItemImg = null
+	var/image/visrWornImg = null
 
 	New()
 		..()
+		// Prep the item overlays
+		fabrItemImg = SafeGetOverlayImage("item-helmet", src.icon, "spacemat")
+		visrItemImg = SafeGetOverlayImage("item-visor", src.icon, "spacemat-vis")
+		// Prep the worn overlays
+		fabrWornImg = SafeGetOverlayImage("worn-helmet", src.wear_image_icon, "spacemat")
+		visrWornImg = SafeGetOverlayImage("worn-visor", src.wear_image_icon, "spacemat-vis")
 
-		visrImg = SafeGetOverlayImage("visor", src.icon, "spacemat-vis") // prep the world icon_state for building, is made later
-		fabrImg = SafeGetOverlayImage("helmet", src.icon, "spacemat")
+	proc/set_custom_mats(datum/material/helmMat, datum/material/visrMat)
+		src.setMaterial(
+			helmMat,
+			FALSE, // We want to purely rely on the overlay colours
+		)
+		name = "[visrMat]-visored [helmMat] helmet"
 
-	proc/setupVisorMat(var/datum/material/V)
-		visr_material = copyMaterial(V) // in 99% of all calls this is redundant but just in case
-		if (visr_material)
+		// Setup the clothing stats based on material properties
+		var/prot = max(0, (5 - visrMat.getProperty("thermal")) * 5)
+		setProperty("coldprot", 10+prot)
+		setProperty("heatprot", 2+round(prot/2))
+		// All crystals (assuming default chem value) will give 20 chemprot, same as normal helm
+		prot =  clamp(((visrMat.getProperty("chemical") - 4) * 10), 0, 35)
+		setProperty("chemprot", prot)
+		 // Even if soft visor, still gives some value
+		prot = max(0, visrMat.getProperty("density") - 3) / 2
+		setProperty("meleeprot_head", 3 + prot)
 
-			var/prot = max(0, (5 - visr_material.getProperty("thermal")) * 5)
-			setProperty("coldprot", 10+prot)
-			setProperty("heatprot", 2+round(prot/2))
-
-			prot =  clamp(((visr_material.getProperty("chemical") - 4) * 10), 0, 35) // All crystals (assuming default chem value) will give 20 chemprot, same as normal helm.
-			setProperty("chemprot", prot)
-
-			prot = max(0, visr_material.getProperty("density") - 3) / 2
-			setProperty("meleeprot_head", 3 + prot) // even if soft visor, still gives some value
-
-		// overlay stuff
-
-		fabrImg.color = src.material
-		UpdateOverlays(fabrImg, "helmet")
-
-		visrImg.color = visr_material.color
-		UpdateOverlays(visrImg, "visor")
-
-
-	UpdateName()
-		if (visr_material && src.material)
-			name = "[visr_material]-visored [src.material] helmet"
-		else if (visr_material)
-			name = " [src.material] helmet"
+		// Setup item overlays
+		fabrItemImg.color = helmMat.color
+		visrItemImg.color = visrMat.color
+		UpdateOverlays(visrItemImg, "item-visor")
+		UpdateOverlays(fabrItemImg, "item-helmet")
+		// Setup worn overlays
+		fabrWornImg.color = helmMat.color
+		visrWornImg.color = visrMat.color
+		src.wear_image.overlays += fabrWornImg
+		src.wear_image.overlays += visrWornImg
+		// Add back the helmet texture since we overide the material apparance
+		if (helmMat.texture)
+			src.setTexture(helmMat.texture, helmMat.texture_blend, "material")
 
 // Sealab helmets
 
@@ -273,6 +277,7 @@
 	New()
 		..()
 		setProperty("chemprot",30)
+		setProperty("heatprot", 15)
 		START_TRACKING_CAT(TR_CAT_NUKE_OP_STYLE)
 
 	#ifdef MAP_OVERRIDE_POD_WARS
@@ -307,6 +312,11 @@
 		seal_hair = 0
 		see_face = 1
 		team_num = TEAM_SYNDICATE
+
+		setupProperties()
+			..()
+			setProperty("exploprot", 10)
+
 		#ifdef MAP_OVERRIDE_POD_WARS
 		attack_hand(mob/user)
 			if (get_pod_wars_team_num(user) == team_num)
@@ -324,6 +334,10 @@
 		desc = "A modified combat helmet for syndicate operative specialists."
 		icon_state = "syndie_specialist"
 		item_state = "syndie_specialist"
+
+		setupProperties()
+			..()
+			setProperty("exploprot", 10)
 
 		infiltrator
 			name = "specialist combat helmet"
@@ -345,7 +359,7 @@
 			icon_state = "syndie_specialist"
 			item_state = "syndie_specialist"
 			c_flags = SPACEWEAR | COVERSEYES
-			see_face = 0.0
+			see_face = 0
 			protective_temperature = 1300
 			abilities = list(/obj/ability_button/nukie_meson_toggle)
 			var/on = 0
@@ -355,7 +369,7 @@
 
 			proc/toggle(var/mob/toggler)
 				src.on = !src.on
-				playsound(src, "sound/items/mesonactivate.ogg", 30, 1)
+				playsound(src, 'sound/items/mesonactivate.ogg', 30, 1)
 				if (ishuman(toggler))
 					var/mob/living/carbon/human/H = toggler
 					if (istype(H.head, /obj/item/clothing/head/helmet/space/syndicate/specialist/engineer)) //handling of the rest is done in life.dm
@@ -394,10 +408,12 @@
 			equipped(var/mob/user, var/slot)
 				..()
 				if (slot == SLOT_HEAD)
+					APPLY_ATOM_PROPERTY(user,PROP_MOB_EXAMINE_HEALTH_SYNDICATE,src)
 					get_image_group(CLIENT_IMAGE_GROUP_HEALTH_MON_ICONS).add_mob(user)
 
 			unequipped(var/mob/user)
 				if(src.equipped_in_slot == SLOT_HEAD)
+					REMOVE_ATOM_PROPERTY(user,PROP_MOB_EXAMINE_HEALTH_SYNDICATE,src)
 					get_image_group(CLIENT_IMAGE_GROUP_HEALTH_MON_ICONS).remove_mob(user)
 				..()
 
@@ -416,7 +432,6 @@
 				..()
 				setProperty("meleeprot_head", 6)
 				setProperty("rangedprot", 1)
-				setProperty("exploprot", 10)
 				setProperty("disorient_resist_eye", 50)
 				setProperty("disorient_resist_ear", 50)
 				setProperty("space_movespeed", 0.3)
@@ -485,6 +500,7 @@
 	name = "T.U.R.D.S. helmet"
 	icon_state = "turdhelm"
 	c_flags = COVERSEYES | BLOCKCHOKE
+	hides_from_examine = C_EARS
 	item_state = "turdhelm"
 	setupProperties()
 		..()
@@ -645,6 +661,7 @@
 	desc = "A head-mounted face cover designed to protect the wearer completely from space-arc eye. Can be flipped up for clearer vision."
 	icon_state = "welding"
 	c_flags = COVERSEYES | BLOCKCHOKE
+	hides_from_examine = C_EARS|C_MASK|C_GLASSES
 	see_face = FALSE
 	item_state = "welding"
 	protective_temperature = 1300
@@ -721,6 +738,7 @@
 	icon_state = "EOD"
 	item_state = "tdhelm"
 	c_flags = COVERSEYES | BLOCKCHOKE
+	hides_from_examine = C_EARS
 	setupProperties()
 		..()
 		setProperty("meleeprot_head", 9)
@@ -758,7 +776,7 @@
 			return
 		weeoo_in_progress = 10
 		SPAWN(0)
-			playsound(src.loc, "sound/machines/siren_police.ogg", 50, 1)
+			playsound(src.loc, 'sound/machines/siren_police.ogg', 50, 1)
 			light.enable()
 			src.icon_state = "siren1"
 			for (weeoo_in_progress, weeoo_in_progress > 0, weeoo_in_progress--)
@@ -811,7 +829,8 @@
 	icon_state = "nthelm"
 	item_state = "nthelm"
 	c_flags = SPACEWEAR | COVERSEYES | COVERSMOUTH | BLOCKCHOKE
-	see_face = 0.0
+	hides_from_examine = C_EARS|C_MASK|C_GLASSES
+	see_face = 0
 	setupProperties()
 		..()
 		setProperty("meleeprot_head", 8)
@@ -871,6 +890,7 @@
 	item_state = "buckethelm"
 	inhand_image_icon = 'icons/mob/inhand/hand_tools.dmi'
 	c_flags = COVERSEYES | BLOCKCHOKE
+	hides_from_examine = C_EARS
 
 	setupProperties()
 		..()
@@ -900,6 +920,7 @@
 	block_vision = 1
 	seal_hair = 1
 	var/bucket_type = /obj/item/reagent_containers/glass/bucket
+	hides_from_examine = C_EARS|C_MASK|C_GLASSES
 
 	attack_self(mob/user as mob)
 		boutput(user, "<span class='notice'>You turn the bucket right side up.</span>")

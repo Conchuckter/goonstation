@@ -82,7 +82,7 @@ stare
 //this whole AI thing was built for flock, and even so, flock just has to be special
 /datum/aiTask/succeedable/move/flock/succeeded()
 	if(move_target)
-		. = (get_dist(holder.owner, src.move_target) == 0)
+		. = (GET_DIST(holder.owner, src.move_target) == 0)
 		if(.)
 			var/mob/living/critter/flock/drone/F = holder.owner
 			if(istype(F) && F.floorrunning)
@@ -94,6 +94,12 @@ stare
 	src.subtasks = list() //get rid of the move and replace it with flockmove
 	add_task(holder.get_instance(/datum/aiTask/succeedable/move/flock, list(holder)))
 
+/datum/aiTask/sequence/goalbased/flock/switched_to()
+	. = ..()
+	var/mob/living/critter/flock/drone/D = holder.owner
+	if(istype(D))
+		D.wander_count = 0
+		D.flock_name_tag.set_info_tag(capitalize(src.name))
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // RALLY TO GOAL
 // target: the rally target given when this is invoked
@@ -200,6 +206,8 @@ stare
 	. = list()
 	var/mob/living/critter/flock/F = holder.owner
 	for(var/turf/simulated/floor/T in view(max_dist, holder.owner))
+		if (!flockTurfAllowed(T))
+			continue
 		if(F?.flock && !F.flock.isTurfFree(T, F.real_name))
 			continue
 		. = get_path_to(holder.owner, list(T), max_dist*2, 1)
@@ -237,7 +245,7 @@ stare
 
 /datum/aiTask/sequence/goalbased/flock/build/valid_target(var/atom/target)
 	var/mob/living/critter/flock/F = holder.owner
-	if(!isfeathertile(target))
+	if(!isfeathertile(target) && flockTurfAllowed(get_turf(target)))
 		if(F?.flock && !F.flock.isTurfFree(target, F.real_name))
 			return FALSE
 		return TRUE
@@ -350,7 +358,7 @@ stare
 	. = list()
 	//as drone, we want to prioritise converting doors and walls and containers
 	for(var/turf/simulated/T in view(max_dist, holder.owner))
-		if(!isfeathertile(T) && (
+		if(!isfeathertile(T) && flockTurfAllowed(T) && (
 			istype(T, /turf/simulated/wall) || \
 			locate(/obj/machinery/door/airlock) in T || \
 			locate(/obj/storage) in T))
@@ -363,7 +371,7 @@ stare
 	// if there are absolutely no walls/doors/closets in view, and no reserved tiles, then fine, you can have a floor tile
 	if(!length(.))
 		for(var/turf/simulated/T in view(max_dist, holder.owner))
-			if(!isfeathertile(T))
+			if(!isfeathertile(T) && flockTurfAllowed(T))
 				if(F?.flock && !F.flock.isTurfFree(T, F.real_name))
 					continue
 				. = get_path_to(holder.owner, list(T), max_dist, 1)
@@ -753,13 +761,17 @@ stare
 	ai_turbo = TRUE
 	var/list/dummy_params = list("icon-x" = 16, "icon-y" = 16)
 
+/datum/aiTask/timed/targeted/flockdrone_shoot/switched_to()
+	. = ..()
+	var/mob/living/critter/flock/drone/D = holder.owner
+	if(istype(D))
+		D.wander_count = 0
+		D.flock_name_tag.set_info_tag(capitalize(src.name))
+
 /datum/aiTask/timed/targeted/flockdrone_shoot/proc/precondition()
 	var/mob/living/critter/flock/drone/F = holder.owner
 	if(length(F.flock?.enemies))
-		var/datum/handHolder/HH = F.hands[3]
-		var/datum/limb/gun/stunner = HH?.limb
-		if(istype(stunner) && !stunner.is_on_cooldown())
-			return TRUE
+		return TRUE
 
 /datum/aiTask/timed/targeted/flockdrone_shoot/evaluate()
 	if(src.precondition())
@@ -768,8 +780,12 @@ stare
 		return 0
 
 /datum/aiTask/timed/targeted/flockdrone_shoot/on_tick()
-	var/mob/living/critter/owncritter = holder.owner
-	walk(owncritter, 0)
+	var/mob/living/critter/flock/drone/flockdrone = holder.owner
+	if (is_incapacitated(flockdrone))
+		return
+	if (flockdrone.floorrunning)
+		flockdrone.end_floorrunning(TRUE)
+	walk(flockdrone, 0)
 	if(!holder.target)
 		holder.target = get_best_target(get_targets())
 	if(holder.target)
@@ -787,25 +803,25 @@ stare
 			holder.interrupt()
 			return
 
-		var/dist = get_dist(owncritter, holder.target)
+		var/dist = GET_DIST(flockdrone, holder.target)
 		if(dist > target_range)
 			holder.target = get_best_target(get_targets())
 		else if(dist > shoot_range)
 			holder.move_to(holder.target,4)
 			frustration++ //if frustration gets too high, the task is ended and re-evaluated
 		else
-			if(owncritter.active_hand != 3) // stunner
-				owncritter.set_hand(3)
-			owncritter.set_dir(get_dir(owncritter, holder.target))
-			owncritter.hand_range_attack(holder.target, dummy_params)
+			if(flockdrone.active_hand != 3) // stunner
+				flockdrone.set_hand(3)
+			flockdrone.set_dir(get_dir(flockdrone, holder.target))
+			flockdrone.hand_range_attack(holder.target, dummy_params)
 			if(dist < run_range)
-				if(prob(20))
+				if(prob(40))
 					// run
 					holder.move_away(holder.target,4)
-			else if(prob(30))
+			if(prob(60))
 				// dodge
-				walk(owncritter, 0)
-				walk_rand(owncritter, 1, 2)
+				walk(flockdrone, 0)
+				walk_rand(flockdrone, 2, 2)
 
 
 /datum/aiTask/timed/targeted/flockdrone_shoot/get_targets()
@@ -814,21 +830,23 @@ stare
 	if(!F?.flock)
 		return
 
-	for(var/atom/T in F.flock.enemies)
-		if(istype(T.loc, /obj/flock_structure/cage))
+	var/list/surroundings = view(holder.owner, target_range)
+
+	for(var/atom/A as anything in F.flock.enemies)
+		if(istype(A.loc, /obj/flock_structure/cage))
 			continue
-		if (isvehicle(T.loc))
-			if(T.loc in view(holder.owner, target_range))
-				F.flock.updateEnemy(T)
-				F.flock.updateEnemy(T.loc)
-				. += T.loc
-		else if(T in view(holder.owner,target_range))
-			F.flock.updateEnemy(T)
-			if(isliving(T))
-				var/mob/living/M = T
+		if (isvehicle(A.loc))
+			if(A.loc in surroundings)
+				F.flock.updateEnemy(A)
+				F.flock.updateEnemy(A.loc)
+				. += A.loc
+		else if(A in surroundings)
+			F.flock.updateEnemy(A)
+			if(isliving(A))
+				var/mob/living/M = A
 				if(is_incapacitated(M))
 					continue
-			. += T
+			. += A
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -866,7 +884,7 @@ stare
 		var/mob/living/mob = target
 		if(!is_incapacitated(mob))
 			return FALSE
-	if(!istype(target.loc, /obj/flock_structure/cage))
+	if(istype(target.loc, /turf))
 		return TRUE
 
 /datum/aiTask/sequence/goalbased/flock/flockdrone_capture/get_targets()
@@ -888,7 +906,7 @@ stare
 	var/mob/living/critter/flock/F = holder.owner
 	if(!F)
 		return TRUE
-	if(get_dist(F, holder.target) > 1)
+	if(!in_interact_range(F, holder.target) || !istype(holder.target?.loc, /turf))
 		return TRUE
 
 /datum/aiTask/succeedable/capture/succeeded()
@@ -904,8 +922,7 @@ stare
 					holder.interrupt()
 					return
 			var/mob/living/critter/flock/drone/owncritter = holder.owner
-			var/dist = get_dist(owncritter, holder.target)
-			if(dist > 1)
+			if(!in_interact_range(owncritter, holder.target) || !istype(T.loc, /turf))
 				holder.interrupt() //this should basically never happen, but sanity check just in case
 				return
 			else if(!actions.hasAction(owncritter, "flock_entomb")) // let's not keep interrupting our own action
@@ -1020,7 +1037,7 @@ stare
 		return TRUE
 	if(!F.can_afford(FLOCK_BARRICADE_COST))
 		return TRUE
-	if(get_dist(F, holder.target) > 1) // drone moved away
+	if(GET_DIST(F, holder.target) > 1) // drone moved away
 		return TRUE
 
 /datum/aiTask/succeedable/barricade/succeeded()
@@ -1031,7 +1048,7 @@ stare
 		var/mob/living/critter/flock/drone/drone = holder.owner
 		if(drone.floorrunning)
 			drone.end_floorrunning(TRUE)
-		var/dist = get_dist(drone, holder.target)
+		var/dist = GET_DIST(drone, holder.target)
 		if(dist > 1)
 			holder.interrupt() //this should basically never happen, but sanity check just in case
 			return
@@ -1207,6 +1224,7 @@ stare
 			movesubtask.max_path_dist = 300
 
 	switched_to()
+		..()
 		on_reset()
 		if (!valid_target(holder.target))
 			var/mob/living/critter/flock/drone/drone = holder.owner
@@ -1225,6 +1243,7 @@ stare
 			movesubtask.max_path_dist = 300
 
 	switched_to()
+		..()
 		on_reset()
 		if (!valid_target(holder.target))
 			var/mob/living/critter/flock/drone/drone = holder.owner
@@ -1254,6 +1273,7 @@ stare
 			movesubtask.max_path_dist = 300
 
 	switched_to()
+		..()
 		on_reset()
 		if (!valid_target(holder.target))
 			var/mob/living/critter/flock/drone/drone = holder.owner
@@ -1267,6 +1287,7 @@ stare
 /datum/aiTask/timed/targeted/flockdrone_shoot/targetable
 
 	switched_to()
+		..()
 		on_reset()
 		if (!(ismob(src.target) || iscritter(src.target) || isvehicle(src.target)) || isflockmob(src.target))
 			var/mob/living/critter/flock/drone/drone = holder.owner
@@ -1288,6 +1309,13 @@ stare
 	var/turf/startpos
 	var/turf/targetpos
 	var/path
+
+/datum/aiTask/timed/wander/flock/switched_to()
+	..()
+	var/mob/living/critter/flock/drone/D = holder.owner
+	if(istype(D))
+		D.wander_count++
+		D.flock_name_tag?.set_info_tag(capitalize(src.name))
 
 /datum/aiTask/timed/wander/flock/on_tick()
 	if(!startpos)
