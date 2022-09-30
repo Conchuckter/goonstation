@@ -8,7 +8,7 @@
 	name = "floor"
 	icon = 'icons/turf/floors.dmi'
 	icon_state = "floor"
-	thermal_conductivity = 0.040
+	thermal_conductivity = 0.04
 	heat_capacity = 225000
 
 
@@ -497,7 +497,7 @@
 
 	New()
 		..()
-		setMaterial(getMaterial("pharosium"))
+		setMaterial(getMaterial("pharosium"), copy = FALSE)
 
 /turf/unsimulated/floor/circuit/green
 	icon_state = "circuit-green"
@@ -761,7 +761,7 @@
 
 	New()
 		..()
-		setMaterial(getMaterial("wood"))
+		setMaterial(getMaterial("wood"), copy = FALSE)
 
 /turf/unsimulated/floor/wood/two
 	icon_state = "wooden"
@@ -977,7 +977,7 @@
 
 	New()
 		..()
-		setMaterial(getMaterial("synthrubber"))
+		setMaterial(getMaterial("synthrubber"), copy = FALSE)
 
 /turf/unsimulated/floor/grass/leafy
 	icon_state = "grass_leafy"
@@ -1126,7 +1126,7 @@
 
 	New()
 		..()
-		setMaterial(getMaterial("ice"))
+		setMaterial(getMaterial("ice"), copy = FALSE)
 		name = initial(name)
 
 /turf/unsimulated/floor/auto/water/ice/rough
