@@ -46,6 +46,7 @@ var/datum/preMapLoad/preMapLoad = new
 #include "code\player.dm"
 #include "code\pooling.dm"
 #include "code\serialization.dm"
+#include "code\telnet.dm"
 #include "code\world.dm"
 #include "code\style.dms"
 #include "code\_lighting\base_lighting.dm"

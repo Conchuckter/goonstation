@@ -114,6 +114,8 @@ var/global/list/vpn_ip_checks = list() //assoc list of ip = true or ip = false. 
 
 	var/hand_ghosts = 1 //pickup ghosts inhand
 
+	var/datum/telnet_connection/telnet = null
+
 /client/proc/audit(var/category, var/message, var/target)
 	if(src.holder && (src.holder.audit & category))
 		logTheThing(LOG_AUDIT, src, message)
@@ -132,6 +134,10 @@ var/global/list/vpn_ip_checks = list() //assoc list of ip = true or ip = false. 
 	return
 
 /client/Del()
+	if (src.telnet)
+		qdel(src.telnet)
+		return ..()
+
 	src.mob?.move_dir = 0
 
 	if (player_capa && src.login_success)
@@ -165,11 +171,11 @@ var/global/list/vpn_ip_checks = list() //assoc list of ip = true or ip = false. 
 	login_success = 0
 
 	if(findtext(src.key, "Telnet @"))
-		src << @{"Sorry, this game does not support Telnet."}
+		src << @{"Telnet connection successful."}
 		preferences = new
-		sleep(5 SECONDS)
-		del(src)
-		return
+		src.telnet = new/datum/telnet_connection(src)
+		src.login_success = 1
+		return ..()
 
 	logTheThing(LOG_ADMIN, src, " has connected.")
 

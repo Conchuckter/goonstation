@@ -166,6 +166,9 @@ var/list/input_window_presets =  list(
 /client/New()
 	. = ..()
 
+	if (telnet)
+		return
+
 	if(src) //In case the client was deleted while New was running
 		create_preset_input_window("say", show=FALSE)
 		create_preset_input_window("whisper", show=FALSE)
