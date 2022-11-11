@@ -351,17 +351,23 @@ Rate: <A href='?src=\ref[src];change_vol=-10'>--</A> <A href='?src=\ref[src];cha
 				SEND_SIGNAL(src, COMSIG_MOVABLE_POST_RADIO_PACKET, signal)
 
 /obj/machinery/computer/general_alert
+	name = "General Alert Computer"
+	icon_state = "alert:0"
+	circuit_type = /obj/item/circuitboard/general_alert
+	var/list/priority_alarms = list()
+	var/list/minor_alarms = list()
+	frequency = FREQ_ALARM
+
 	New()
 		..()
-		MAKE_DEFAULT_RADIO_PACKET_COMPONENT("control", frequency)
-		MAKE_SENDER_RADIO_PACKET_COMPONENT("respond", respond_frequency)
-		MAKE_DEFAULT_RADIO_PACKET_COMPONENT("receive", receive_frequency)
+		// MAKE_DEFAULT_RADIO_PACKET_COMPONENT("control", frequency) Unused?
+		MAKE_DEFAULT_RADIO_PACKET_COMPONENT(null, src.frequency)
 
 	receive_signal(datum/signal/signal)
 		if(!signal || signal.encryption) return
 
 		//Oh, someone is asking us for data instead of reporting a thing.
-		if((signal.data["command"] == "report_alerts") && signal.data["sender"])
+		if ((signal.data["command"] == "report_alerts") && signal.data["sender"])
 			var/datum/signal/newsignal = get_free_signal()
 
 			newsignal.data["address_1"] = signal.data["sender"]
@@ -371,9 +377,8 @@ Rate: <A href='?src=\ref[src];change_vol=-10'>--</A> <A href='?src=\ref[src];cha
 			if(minor_alarms.len)
 				newsignal.data["minor_list"] = jointext(minor_alarms, ";")
 
-			SEND_SIGNAL(src, COMSIG_MOVABLE_POST_RADIO_PACKET, newsignal, null, "respond")
+			SEND_SIGNAL(src, COMSIG_MOVABLE_POST_RADIO_PACKET, newsignal)
 			return
-
 
 		var/zone = signal.data["zone"]
 		var/severity = signal.data["alert"]

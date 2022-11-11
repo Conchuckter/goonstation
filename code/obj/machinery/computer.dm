@@ -85,15 +85,6 @@
 	icon_state = "console00"
 */
 
-/obj/machinery/computer/general_alert
-	name = "General Alert Computer"
-	icon_state = "alert:0"
-	circuit_type = /obj/item/circuitboard/general_alert
-	var/list/priority_alarms = list()
-	var/list/minor_alarms = list()
-	var/receive_frequency = FREQ_ALARM
-	var/respond_frequency = FREQ_PDA
-
 /obj/machinery/computer/hangar
 	name = "Hangar"
 	icon_state = "teleport"

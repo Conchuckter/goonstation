@@ -500,9 +500,9 @@ Code:
 	on_activated(obj/item/device/pda2/pda)
 		pda.AddComponent(/datum/component/packet_connected/radio, \
 			"report",\
-			FREQ_PDA, \
+			FREQ_ALARM, \
 			pda.net_id, \
-			null, \
+			"receive_signal", \
 			FALSE, \
 			null, \
 			FALSE \
@@ -532,15 +532,20 @@ Code:
 			return
 
 		if(href_list["scan"] && (world.time >= last_scan + 20))
-			src.temp = "Waiting for reply, please hold..."
+			src.temp = "Waiting for reply, please hold...<br><a href='?src=\ref[src];cancel=1'>Cancel</a>"
 			src.severe_alerts = list()
 			src.minor_alerts = list()
 
 			var/datum/signal/signal = get_free_signal()
+			signal.source = src.master
+			signal.transmission_method = TRANSMISSION_RADIO
 			signal.data["sender"] = src.master.net_id
 			signal.data["command"] = "report_alerts"
 
 			src.post_signal(signal)
+
+		else if (href_list["cancel"] && src.temp) // so people don't softlock the app in the case that it doesn't get a response
+			src.temp = null
 
 		src.master.add_fingerprint(usr)
 		src.master.updateSelfDialog()
